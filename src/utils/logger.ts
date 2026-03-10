@@ -1,5 +1,17 @@
 import pino from "pino";
+import path from "node:path";
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
 import { env } from "../config/env.js";
+
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+const projectRoot = path.resolve(moduleDir, "../..");
+const logsDir = path.join(projectRoot, "logs");
+
+fs.mkdirSync(logsDir, { recursive: true });
+
+const today = new Date().toISOString().slice(0, 10);
+const logFilePath = path.join(logsDir, `bot-${today}.log`);
 
 export const logger = pino({
   level: env.LOG_LEVEL,
@@ -8,11 +20,26 @@ export const logger = pino({
   },
   timestamp: pino.stdTimeFunctions.isoTime,
   transport: {
-    target: "pino-pretty",
-    options: {
-      colorize: true,
-      ignore: "pid,hostname,service",
-      translateTime: "UTC:yyyy-mm-dd'T'HH:MM:ss.l'Z'",
-    },
+    targets: [
+      {
+        target: "pino-pretty",
+        level: env.LOG_LEVEL,
+        options: {
+          colorize: true,
+          ignore: "pid,hostname,service",
+          translateTime: "UTC:yyyy-mm-dd'T'HH:MM:ss.l'Z'",
+        },
+      },
+      {
+        target: "pino/file",
+        level: env.LOG_LEVEL,
+        options: {
+          destination: logFilePath,
+          mkdir: true,
+        },
+      },
+    ],
   },
 });
+
+logger.info({ logFilePath }, "Logging to file");
